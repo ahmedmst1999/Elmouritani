@@ -302,7 +302,7 @@ const VoiceMode: React.FC<VoiceModeProps> = ({ user, onUpdateUser }) => {
           <h2 className="text-xl font-bold text-white leading-relaxed">هذه الميزة متاحة للمشتركين فقط. تواصل معنا لتفعيل حسابك الآن.</h2>
           <div className="pt-4">
             <a 
-              href="https://api.whatsapp.com/send?phone=22230707095&text=السلام%20عليكم%20الموريتاني،%20أريد%20تفعيل%20اشتراكي%20لاستخدام%20الميزة%20الصوتية" 
+              href="https://api.whatsapp.com/send?phone=22230707095&text=السلام%20عليكم%20الموريتاني" 
               target="_blank" 
               rel="noopener noreferrer"
               className="inline-flex items-center gap-3 px-10 py-4 bg-green-600 rounded-full font-bold text-white shadow-xl hover:bg-green-500 transition-all active:scale-95"

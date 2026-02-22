@@ -77,7 +77,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
       <div className="flex flex-col items-center gap-3 w-full border-t border-white/5 pt-6">
         <a 
-          href="https://api.whatsapp.com/send?phone=22230707095&text=السلام%20عليكم%20الموريتاني،%20أريد%20الاستفسار%20عن%20تفعيل%20حسابي"
+          href="https://api.whatsapp.com/send?phone=22230707095&text=السلام%20عليكم%20الموريتاني"
           target="_blank"
           rel="noopener noreferrer"
           className="w-full py-3 bg-green-600/10 border border-green-500/20 rounded-2xl text-center text-sm font-bold text-green-500 hover:bg-green-600/20 transition-colors flex items-center justify-center gap-2"

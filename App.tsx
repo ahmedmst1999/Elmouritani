@@ -203,7 +203,7 @@ const App: React.FC = () => {
         </button>
 
         <a 
-          href="https://api.whatsapp.com/send?phone=22230707095&text=السلام%20عليكم%20الموريتاني،%20أريد%20تفعيل%20اشتراكي"
+          href="https://api.whatsapp.com/send?phone=22230707095&text=السلام%20عليكم%20الموريتاني"
           target="_blank"
           rel="noopener noreferrer"
           className="flex flex-col items-center gap-1 text-slate-400 hover:text-purple-400 transition-colors"
