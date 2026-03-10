@@ -28,7 +28,7 @@ const ChatMode: React.FC<ChatModeProps> = ({ user, onUpdateUser }) => {
     if (!input.trim() && !image) return;
 
     if (!user.isAdmin && user.dailyMessagesCount >= 10) {
-      setMessages(prev => [...prev, { role: 'assistant', content: 'لقد تجاوزت الحد المسموح به لليوم (10 رسائل). يمكنك العودة غداً.' }]);
+      setMessages(prev => [...prev, { role: 'assistant', content: 'لقد تجاوزت الحد المسموح به في اليوم' }]);
       return;
     }
 
@@ -71,11 +71,22 @@ const ChatMode: React.FC<ChatModeProps> = ({ user, onUpdateUser }) => {
       // Update usage count
       if (!user.isAdmin) {
         const newCount = user.dailyMessagesCount + 1;
-        onUpdateUser({ dailyMessagesCount: newCount });
-        const docRef = doc(db, "subscriptions", user.id);
-        await updateDoc(docRef, {
-          dailyMessagesCount: increment(1)
+        const isFirstUsage = !user.firstUsageAt && user.dailyMessagesCount === 0 && user.dailyVoiceMinutes === 0;
+        const firstUsageAt = isFirstUsage ? Date.now() : user.firstUsageAt;
+        
+        onUpdateUser({ 
+          dailyMessagesCount: newCount,
+          firstUsageAt: firstUsageAt
         });
+
+        const docRef = doc(db, "subscriptions", user.id);
+        const updateData: any = {
+          dailyMessagesCount: increment(1)
+        };
+        if (isFirstUsage) {
+          updateData.firstUsageAt = firstUsageAt;
+        }
+        await updateDoc(docRef, updateData);
       }
     } catch (err) {
       console.error(err);
@@ -93,6 +104,31 @@ const ChatMode: React.FC<ChatModeProps> = ({ user, onUpdateUser }) => {
       reader.readAsDataURL(file);
     }
   };
+
+  if (!user.isActive && !user.isAdmin) {
+    return (
+      <div className="flex flex-col items-center justify-center w-full h-full text-center space-y-8 animate-in fade-in duration-700">
+        <div className="w-48 h-48 rounded-full flex items-center justify-center bg-slate-900 border-2 border-slate-800 shadow-2xl relative">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-20 w-20 text-slate-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+          </svg>
+        </div>
+        <div className="space-y-4 px-4">
+          <h2 className="text-xl font-bold text-white leading-relaxed">هذه الميزة متاحة للمشتركين فقط. تواصل معنا لتفعيل حسابك الآن.</h2>
+          <div className="pt-4">
+            <a 
+              href="https://api.whatsapp.com/send?phone=22237372793&text=السلام%20عليكم%20الموريتاني" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-3 px-10 py-4 bg-green-600 rounded-full font-bold text-white shadow-xl hover:bg-green-500 transition-all active:scale-95"
+            >
+              تواصل مع الدعم
+            </a>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col w-full h-full glass rounded-3xl overflow-hidden border-white/5 shadow-2xl bg-slate-900/20">

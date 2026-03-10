@@ -83,11 +83,21 @@ const VoiceMode: React.FC<VoiceModeProps> = ({ user, onUpdateUser }) => {
   const updateVoiceDuration = async (minutes: number) => {
     if (user.isAdmin || minutes <= 0) return;
     try {
+      const isFirstUsage = !user.firstUsageAt && user.dailyMessagesCount === 0 && user.dailyVoiceMinutes === 0;
+      const firstUsageAt = isFirstUsage ? Date.now() : user.firstUsageAt;
+
       const docRef = doc(db, "subscriptions", user.id);
-      await updateDoc(docRef, {
+      const updateData: any = {
         dailyVoiceMinutes: increment(minutes)
+      };
+      if (isFirstUsage) {
+        updateData.firstUsageAt = firstUsageAt;
+      }
+      await updateDoc(docRef, updateData);
+      onUpdateUser({ 
+        dailyVoiceMinutes: user.dailyVoiceMinutes + minutes,
+        firstUsageAt: firstUsageAt
       });
-      onUpdateUser({ dailyVoiceMinutes: user.dailyVoiceMinutes + minutes });
     } catch (e) {
       console.error("Failed to update voice duration:", e);
     }
@@ -283,7 +293,7 @@ const VoiceMode: React.FC<VoiceModeProps> = ({ user, onUpdateUser }) => {
           </svg>
         </div>
         <div className="space-y-4 px-4">
-          <h2 className="text-xl font-bold text-white leading-relaxed">لقد تجاوزت الحد المسموح به لليوم.</h2>
+          <h2 className="text-xl font-bold text-white leading-relaxed">لقد تجاوزت الحد المسموح به في اليوم</h2>
           <p className="text-slate-400">يمكنك العودة غداً لمواصلة التحدث.</p>
         </div>
       </div>
@@ -302,7 +312,7 @@ const VoiceMode: React.FC<VoiceModeProps> = ({ user, onUpdateUser }) => {
           <h2 className="text-xl font-bold text-white leading-relaxed">هذه الميزة متاحة للمشتركين فقط. تواصل معنا لتفعيل حسابك الآن.</h2>
           <div className="pt-4">
             <a 
-              href="https://api.whatsapp.com/send?phone=22230707095&text=السلام%20عليكم%20الموريتاني" 
+              href="https://api.whatsapp.com/send?phone=22237372793&text=السلام%20عليكم%20الموريتاني" 
               target="_blank" 
               rel="noopener noreferrer"
               className="inline-flex items-center gap-3 px-10 py-4 bg-green-600 rounded-full font-bold text-white shadow-xl hover:bg-green-500 transition-all active:scale-95"

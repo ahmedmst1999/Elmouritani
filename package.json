@@ -10,8 +10,8 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
-    "react": "^19.2.4",
-    "react-dom": "19.2.3",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
     "@google/genai": "1.38.0",
     "firebase": "^12.8.0"
   },

@@ -1,23 +1,16 @@
 
 import React, { useState, useEffect } from 'react';
 import { auth, db } from './firebase';
-import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from "firebase/auth";
-import { doc, getDoc, setDoc, serverTimestamp, Timestamp, enableIndexedDbPersistence } from "firebase/firestore";
+import { onAuthStateChanged, signInWithEmailAndPassword, signOut, setPersistence, browserSessionPersistence } from "firebase/auth";
+import { doc, getDoc, setDoc, serverTimestamp, Timestamp } from "firebase/firestore";
 import { AppMode, UserProfile } from './types';
 import Header from './components/Header';
 import VoiceMode from './components/VoiceMode';
 import ChatMode from './components/ChatMode';
 import Login from './components/Login';
 
-try {
-  enableIndexedDbPersistence(db).catch((err) => {
-    if (err.code === 'failed-precondition') {
-      console.warn("Firestore Persistence failed: Multiple tabs open.");
-    } else if (err.code === 'unimplemented') {
-      console.warn("Firestore Persistence is not supported by this browser.");
-    }
-  });
-} catch (e) {}
+// Set Auth Persistence to Session only (clears on tab/window close)
+setPersistence(auth, browserSessionPersistence).catch(console.error);
 
 const App: React.FC = () => {
   const [mode, setMode] = useState<AppMode>(AppMode.CHAT);
@@ -29,37 +22,33 @@ const App: React.FC = () => {
     try {
       const docRef = doc(db, "subscriptions", uid);
       const docSnap = await getDoc(docRef);
-      const today = new Date().toISOString().split('T')[0];
-      
-      let startDate: Date;
-      let durationDays: number;
+      const now = Date.now();
       let dailyMessagesCount = 0;
       let dailyVoiceMinutes = 0;
-      let lastUsageReset = today;
+      let firstUsageAt: number | null = null;
       let isActive = false;
 
       if (docSnap.exists()) {
         const data = docSnap.data();
-        startDate = (data.startDate as Timestamp).toDate();
-        durationDays = data.durationDays || 30;
+        const startDate = (data.startDate as Timestamp).toDate();
+        const durationDays = data.durationDays || 30;
         
         const expiryDate = new Date(startDate);
         expiryDate.setDate(expiryDate.getDate() + durationDays);
         isActive = new Date() <= expiryDate;
 
-        lastUsageReset = data.lastUsageReset || today;
-        if (lastUsageReset !== today) {
+        firstUsageAt = data.firstUsageAt || null;
+        dailyMessagesCount = data.dailyMessagesCount || 0;
+        dailyVoiceMinutes = data.dailyVoiceMinutes || 0;
+
+        // Reset if 24 hours have passed since first usage
+        if (firstUsageAt && (now - firstUsageAt >= 24 * 60 * 60 * 1000)) {
           dailyMessagesCount = 0;
           dailyVoiceMinutes = 0;
-          lastUsageReset = today;
-          await setDoc(docRef, { lastUsageReset, dailyMessagesCount, dailyVoiceMinutes }, { merge: true });
-        } else {
-          dailyMessagesCount = data.dailyMessagesCount || 0;
-          dailyVoiceMinutes = data.dailyVoiceMinutes || 0;
+          firstUsageAt = null;
+          await setDoc(docRef, { firstUsageAt, dailyMessagesCount, dailyVoiceMinutes }, { merge: true });
         }
       } else {
-        startDate = new Date();
-        durationDays = 30;
         isActive = true;
         try {
           await setDoc(docRef, {
@@ -67,7 +56,7 @@ const App: React.FC = () => {
             durationDays: 30,
             dailyMessagesCount: 0,
             dailyVoiceMinutes: 0,
-            lastUsageReset: today
+            firstUsageAt: null
           });
         } catch (setErr) {
           console.error("SetDoc error:", setErr);
@@ -79,7 +68,7 @@ const App: React.FC = () => {
         isActive,
         dailyMessagesCount,
         dailyVoiceMinutes,
-        lastUsageReset
+        firstUsageAt
       };
     } catch (error: any) {
       console.error("Fetch user data failed:", error);
@@ -88,21 +77,54 @@ const App: React.FC = () => {
         isActive: true,
         dailyMessagesCount: 0,
         dailyVoiceMinutes: 0,
-        lastUsageReset: new Date().toISOString().split('T')[0]
+        firstUsageAt: null
       }; 
     }
   };
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      setIsAuthChecking(true);
-      if (firebaseUser) {
-        const userData = await getUserData(firebaseUser.uid);
-        setUser(userData);
-      } else if (!bypassActive) {
-        setUser(null);
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        // Optional: Logout after 30 seconds in background
+        const timeout = setTimeout(() => {
+          if (document.visibilityState === 'hidden') {
+            handleLogout();
+          }
+        }, 30000);
+        return () => clearTimeout(timeout);
       }
-      setIsAuthChecking(false);
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [user]);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      if (firebaseUser) {
+        // Immediate transition: set basic user info
+        setUser(prev => {
+          if (prev?.id === firebaseUser.uid) return prev;
+          return {
+            id: firebaseUser.uid,
+            isActive: true, // Optimistic active state
+            dailyMessagesCount: 0,
+            dailyVoiceMinutes: 0,
+            firstUsageAt: null
+          };
+        });
+        setIsAuthChecking(false);
+
+        // Background fetch for full profile/subscription data
+        getUserData(firebaseUser.uid).then(fullData => {
+          setUser(fullData);
+        });
+      } else {
+        if (!bypassActive) {
+          setUser(null);
+        }
+        setIsAuthChecking(false);
+      }
     });
     return () => unsubscribe();
   }, [bypassActive]);
@@ -115,7 +137,7 @@ const App: React.FC = () => {
       isAdmin: true,
       dailyMessagesCount: 0,
       dailyVoiceMinutes: 0,
-      lastUsageReset: new Date().toISOString().split('T')[0]
+      firstUsageAt: null
     });
     alert("تم تفعيل وضع المسؤول");
   };
@@ -203,7 +225,7 @@ const App: React.FC = () => {
         </button>
 
         <a 
-          href="https://api.whatsapp.com/send?phone=22230707095&text=السلام%20عليكم%20الموريتاني"
+          href="https://api.whatsapp.com/send?phone=22237372793&text=السلام%20عليكم%20الموريتاني"
           target="_blank"
           rel="noopener noreferrer"
           className="flex flex-col items-center gap-1 text-slate-400 hover:text-purple-400 transition-colors"

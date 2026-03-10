@@ -14,7 +14,7 @@ export interface UserProfile {
   expiryDate?: Date;
   dailyMessagesCount: number;
   dailyVoiceMinutes: number;
-  lastUsageReset: string;
+  firstUsageAt: number | null;
 }
 
 export enum AppMode {
